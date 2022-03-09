@@ -1,3 +1,8 @@
+const { createSocket } = require('dgram');
+const { SocketAddress } = require('net');
+const MQTT_ADDRESS = "192.168.1.250";
+const MQTT_PORT = "5600";
+const db = require('./queries')
 const express = require('express'),
     app = express(),
     cors = require('cors'),
@@ -5,123 +10,66 @@ const express = require('express'),
     path = require('path'),
     bodyParser = require('body-parser'),
     mqtt = require('mqtt'),
-    mqttClientTemperature = mqtt.connect('mqtt://192.168.1.250:5600'),
-    mqttClientActivity = mqtt.connect('mqtt://192.168.1.250:5600'),
-    mqttClientAltitude = mqtt.connect('mqtt://192.168.1.250:5600'),
-    mqttClientHumidity = mqtt.connect('mqtt://192.168.1.250:5600'),
-    mqttClientRain = mqtt.connect('mqtt://192.168.1.250:5600'),
-    mqttClientPression = mqtt.connect('mqtt://192.168.1.250:5600'),
-    mqttTopicTemperature = 'houseduino/Temperature',
-    mqttTopicActivity = 'houseduino/Activity',
-    mqttTopicAltitude = 'houseduino/Altitude',
-    mqttTopicHumidity = 'houseduino/Humidity',
-    mqttTopicRain = 'houseduino/Rain',
-    mqttTopicPression = 'houseduino/Pression',
+    mqttClientTemperature = createSocketMQTT(MQTT_ADDRESS, MQTT_PORT, 'houseduino/Temperature', 'temperature'),
+    mqttClientActivity = createSocketMQTT(MQTT_ADDRESS, MQTT_PORT, 'houseduino/Activity', 'activity'),
+    mqttClientAltitude = createSocketMQTT(MQTT_ADDRESS, MQTT_PORT, 'houseduino/Altitude', 'altitude'),
+    mqttClientHumidity = createSocketMQTT(MQTT_ADDRESS, MQTT_PORT, 'houseduino/Humidity', 'humidity'),
+    mqttClientRain = createSocketMQTT(MQTT_ADDRESS, MQTT_PORT, 'houseduino/Rain', 'rain'),
+    mqttClientPression = createSocketMQTT(MQTT_ADDRESS, MQTT_PORT, 'houseduino/Pression', 'pression'),
     server = require('http').createServer(app),
     io = require('socket.io').listen(server);
 
 var streamInterval;
 var msFrequency = 1000;
 
-/* 
-Subscribe (listen) to MQTT topic and start publishing
-simulated data after successful MQTT connection 
-*/
-mqttClientTemperature.on('connect', () => {
-    mqttClientTemperature.subscribe(mqttTopicTemperature); //subscribe
-    //startStreamSimulation();
-})
-mqttClientActivity.on('connect', () => {
-    mqttClientActivity.subscribe(mqttTopicActivity); //subscribe
-    //startStreamSimulation();
-})
-mqttClientAltitude.on('connect', () => {
-    mqttClientAltitude.subscribe(mqttTopicAltitude); //subscribe
-    //startStreamSimulation();
-})
-mqttClientHumidity.on('connect', () => {
-    mqttClientHumidity.subscribe(mqttTopicHumidity); //subscribe
-    //startStreamSimulation();
-})
-mqttClientRain.on('connect', () => {
-    mqttClientRain.subscribe(mqttTopicRain); //subscribe
-    //startStreamSimulation();
-})
-mqttClientPression.on('connect', () => {
-    mqttClientPression.subscribe(mqttTopicPression); //subscribe
-    //startStreamSimulation();
-})
+function createSocketMQTT(address, port, topic, nomeVariabile) {
+    var mqttElement = mqtt.connect(['mqtt://', address, ':', port].join(''));
 
-mqttClientTemperature.on('offline', () => {
-    mqttClient.unsubscribe(mqttTopicTemperature);
-    clearInterval(streamInterval);
-})
-mqttClientActivity.on('offline', () => {
-    mqttClientActivity.unsubscribe(mqttTopicActivity);
-    clearInterval(streamInterval);
-})
-mqttClientAltitude.on('offline', () => {
-    mqttClientAltitude.unsubscribe(mqttTopicAltitude);
-    clearInterval(streamInterval);
-})
-mqttClientHumidity.on('offline', () => {
-    mqttClientHumidity.unsubscribe(mqttTopicHumidity);
-    clearInterval(streamInterval);
-})
-mqttClientPression.on('offline', () => {
-    mqttClientPressionunsubscribe(mqttTopicPression);
-    clearInterval(streamInterval);
-})
-mqttClientRain.on('offline', () => {
-    mqttClientRain.unsubscribe(mqttTopicRain);
-    clearInterval(streamInterval);
-})
+    mqttElement.on('connect', () => {
+        mqttElement.subscribe(topic); //subscribe
+        //startStreamSimulation();
+    })
+    mqttElement.on('offline', () => {
+        mqttElement.unsubscribe(topic);
+        clearInterval(streamInterval);
+    })
+    mqttElement.on('message', function (topic, message) {
 
-/* 
-Message event fires, when new messages
-arrive on the subscribed topic
-*/
-mqttClientTemperature.on('message', function (topic, message) {
-    var temperature = 0;
+        var valore = ['{"', nomeVariabile, '":"', message, '"}'].join('');
+        //console.log("%s -> %s",nomeVariabile, message);
+        io.emit([nomeVariabile, 'Data'].join(''), valore);
 
-    var valore = ['{"temperature":"', message, '"}'].join('');
-    io.emit('temperatureData', valore);
-})
+        writeData(nomeVariabile, message);
+    })
+    return mqttElement;
+}
 
-mqttClientActivity.on('message', function (topic, message) {
-    var activity = 0;
+function writeData(nomeVariabile, valore) {
+    switch (nomeVariabile) {
+        case 'temperature':
+            db.insertTemperature(valore);
+            break;
+        case 'activity':
+            db.insertActivity();
+            break;
+        case 'altitude':
+            db.insertAltitude(valore);
+            break;
+        case 'pression':
+            db.insertPression(valore);
+            break;
+        case 'rain':
+            db.insertRain(valore);
+            break;
+        case 'humidity':
+            db.insertHumidity(valore);
+            break;
 
-    var valore = ['{"activity":"', message, '"}'].join('');
-    io.emit('activityData', valore);
-})
+    }
+}
 
-mqttClientHumidity.on('message', function (topic, message) {
-    var humidity = 0;
 
-    var valore = ['{"humidity":"', message, '"}'].join('');
-    io.emit('humidityData', valore);
-})
 
-mqttClientPression.on('message', function (topic, message) {
-    var pression = 0;
-
-    var valore = ['{"pression":"', message, '"}'].join('');
-   io.emit('pressionData', valore);
-})
-
-mqttClientRain.on('message', function (topic, message) {
-    var rain = 0;
-
-    var valore = ['{"rain":"', message, '"}'].join('');
-    io.emit('rainData', valore);
-})
-
-mqttClientAltitude.on('message', function (topic, message) {
-    var altitude = 0;
-
-    var valore = ['{"altitude":"', message, '"}'].join('');
-    io.emit('altitudeData', valore);
-})
 /* 
 Function that publishes simulated data to the MQTT broker every ≈20ms
 */
