@@ -8,21 +8,21 @@ const pool = new Pool({
 })
 
 const insertData = (tabella, valore) => {
-    pool.query(['insert into ',tabella, ' (valore,data_inserimento) values (', valore, ',CURRENT_TIMESTAMP)'].join(''), (error, result) => {
+    pool.query(['insert into ', tabella, ' (valore,data_inserimento) values (', valore, ',CURRENT_TIMESTAMP)'].join(''), (error, result) => {
         if (error) {
-            console.log('Errore %s: %s',tabella, error);
+            console.log('Errore %s: %s', tabella, error);
         }
-        else
-            console.log('inserito %s ', tabella);
+        //else
+        //    console.log('inserito %s ', tabella);
     })
 }
 const insertData2 = (tabella) => {
-    pool.query(['insert into ',tabella, ' (data_inserimento) values (CURRENT_TIMESTAMP)'].join(''), (error, result) => {
+    pool.query(['insert into ', tabella, ' (data_inserimento) values (CURRENT_TIMESTAMP)'].join(''), (error, result) => {
         if (error) {
-            console.log('Errore %s: %s',tabella, error);
+            console.log('Errore %s: %s', tabella, error);
         }
-        else
-        console.log('inserito %s', tabella);
+        //else
+        //console.log('inserito %s', tabella);
     })
 }
 const insertAltitude = (valore) => {
